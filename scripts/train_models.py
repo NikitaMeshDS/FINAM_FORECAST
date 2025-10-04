@@ -1,11 +1,18 @@
 import pandas as pd
 import os
-from lightgbm import LGBMRegressor
+import numpy as np
+import random
 import joblib
-from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
-from config import TARGET_DAYS, LAGS, WINDOWS, TICKER_COL, SAVE_DIR, DATA_DIR
+from lightgbm import LGBMRegressor
+from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
+from scipy.stats import uniform, randint
+from config import TARGET_DAYS, LAGS, WINDOWS, TICKER_COL, SAVE_DIR, DATA_DIR, COMBINED_DATASET_PATH, SEED
 
-# Подготовка данных с фичами
+# Фиксируем seed для воспроизводимости
+np.random.seed(SEED)
+random.seed(SEED)
+os.environ['PYTHONHASHSEED'] = str(SEED)
+
 def prepare_data(df, lags=LAGS, windows=WINDOWS):
     """Подготавливает данные с техническими индикаторами и новостными признаками"""
     df = df.sort_values([TICKER_COL, "begin"]).reset_index(drop=True)
@@ -39,52 +46,92 @@ def prepare_data(df, lags=LAGS, windows=WINDOWS):
     
     return pd.concat(all_features, axis=0).reset_index(drop=True)
 
-# Обучение моделей
+def check_gpu_support():
+    """Проверяет доступность GPU для LightGBM"""
+    try:
+        import lightgbm as lgb
+        test_model = lgb.LGBMRegressor(
+            device='gpu', 
+            gpu_platform_id=0, 
+            gpu_device_id=0, 
+            n_estimators=1,
+            random_state=SEED
+        )
+        # Пробуем обучить модель на тестовых данных
+        import numpy as np
+        X_test = np.random.rand(10, 5)
+        y_test = np.random.rand(10)
+        test_model.fit(X_test, y_test)
+        return True
+    except Exception as e:
+        print(f"GPU не поддерживается: {e}")
+        return False
+
 def train_models(train_data, tickers, save_dir=SAVE_DIR):
-    """Обучает модели для каждого тикера с перебором параметров"""
+    """Обучает модели для каждого тикера с быстрым перебором параметров"""
     models = {}
     
-    param_grid = {
-        'n_estimators': [500, 1000],
-        'learning_rate': [0.05, 0.1],
-        'num_leaves': [31, 63],
-        'max_depth': [6, 8],
-        'min_child_samples': [20, 30]
+    # Проверяем поддержку GPU
+    use_gpu = check_gpu_support()
+    print(f"GPU поддержка: {'Да' if use_gpu else 'Нет'}")
+    
+    # Параметры для случайного поиска
+    param_distributions = {
+        'n_estimators': randint(400, 100),
+        'learning_rate': uniform(0.01, 0.2),
+        'num_leaves': randint(20, 100),
+        'max_depth': randint(4, 12),
+        'min_child_samples': randint(10, 50),
+        'subsample': uniform(0.7, 0.3),
+        'colsample_bytree': uniform(0.7, 0.3),
+        'reg_alpha': uniform(0, 1),
+        'reg_lambda': uniform(0, 1)
     }
     
     for ticker in tickers:
         print(f"Обучаем модель для {ticker}...")
         data = train_data[train_data[TICKER_COL] == ticker].copy()
         
-        # Определяем признаки (исключаем служебные колонки)
         exclude_cols = ["begin", "ticker", "close", "begin_date_only", "open", "high", "low", "volume"]
         feature_cols = [c for c in data.columns if c not in exclude_cols]
         
         X_train = data[feature_cols]
         y_train = data["close"]
         
-        # Базовые настройки модели LightGBM
-        base_model = LGBMRegressor(
-            random_state=42,
-            verbose=-1
-        )
+        # Базовые настройки модели LightGBM с GPU
+        base_params = {
+            'random_state': SEED,
+            'verbose': -1,
+            'n_jobs': -1
+        }
+        
+        if use_gpu:
+            base_params.update({
+                'device': 'gpu',
+                'gpu_platform_id': 0,
+                'gpu_device_id': 0
+            })
+        
+        base_model = LGBMRegressor(**base_params)
         
         # Используем TimeSeriesSplit для временных рядов
         tscv = TimeSeriesSplit(n_splits=3)
 
-        grid_search = GridSearchCV(
+        random_search = RandomizedSearchCV(
             estimator=base_model,
-            param_grid=param_grid,
+            param_distributions=param_distributions,
+            n_iter=5,  # Количество случайных комбинаций
             cv=tscv,
             scoring='neg_mean_absolute_error',
             n_jobs=-1,
-            verbose=0
+            verbose=0,
+            random_state=SEED
         )
         
-        grid_search.fit(X_train, y_train)
+        random_search.fit(X_train, y_train)
         
         # Получаем лучшую модель
-        best_model = grid_search.best_estimator_
+        best_model = random_search.best_estimator_
         models[ticker] = best_model
         
         model_path = os.path.join(save_dir, f"{ticker}_model.pkl")
@@ -94,17 +141,15 @@ def train_models(train_data, tickers, save_dir=SAVE_DIR):
         feature_info = {
             'feature_cols': feature_cols,
             'ticker': ticker,
-            'best_params': grid_search.best_params_,
-            'best_score': grid_search.best_score_
+            'best_params': random_search.best_params_,
+            'best_score': random_search.best_score_
         }
         joblib.dump(feature_info, os.path.join(save_dir, f"{ticker}_features.pkl"))
     
     return models
 
-if __name__ == "__main__":а
-    combined_data_path = os.path.join(DATA_DIR, "combined_dataset.csv")
-    
-    combined_data = pd.read_csv(combined_data_path, parse_dates=["begin"])
+if __name__ == "__main__":
+    combined_data = pd.read_csv(COMBINED_DATASET_PATH, parse_dates=["begin"])
     
     # Подготавливаем данные с признаками
     train_data = prepare_data(combined_data)

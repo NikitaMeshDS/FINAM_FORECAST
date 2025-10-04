@@ -6,13 +6,21 @@
 import pandas as pd
 import numpy as np
 import ast
+import random
 from datetime import datetime, timedelta
 import os
 from config import (
     TRAIN_CANDLES_PATH,
     OUTPUT_FILE_PATH,
-    DATA_DIR
+    DATA_DIR,
+    COMBINED_DATASET_PATH,
+    SEED
 )
+
+# Фиксируем seed для воспроизводимости
+np.random.seed(SEED)
+random.seed(SEED)
+os.environ['PYTHONHASHSEED'] = str(SEED)
 
 def parse_affected_tickers(tickers_str):
     """
@@ -22,12 +30,10 @@ def parse_affected_tickers(tickers_str):
         return []
     
     try:
-        # Пытаемся распарсить как Python список
         if isinstance(tickers_str, str):
             return ast.literal_eval(tickers_str)
         return tickers_str
     except (ValueError, SyntaxError):
-        # Если не удается распарсить, возвращаем пустой список
         return []
 
 def prepare_news_data(news_df):
@@ -38,10 +44,8 @@ def prepare_news_data(news_df):
     # Конвертируем дату публикации в datetime
     news_df['publish_date'] = pd.to_datetime(news_df['publish_date'])
     
-    # Создаем дату без времени для объединения
     news_df['publish_date_only'] = news_df['publish_date'].dt.date
     
-    # Парсим affected_tickers
     news_df['affected_tickers_parsed'] = news_df['affected_tickers'].apply(parse_affected_tickers)
     
     # Создаем отдельные строки для каждого тикера в affected_tickers
@@ -92,12 +96,10 @@ def get_all_categories(news_df):
     for categories_list in news_df['category']:
         if isinstance(categories_list, str):
             try:
-                # Парсим строку как список
                 categories = ast.literal_eval(categories_list)
                 if isinstance(categories, list):
                     all_categories.update(categories)
             except:
-                # Если не удается распарсить, добавляем как есть
                 all_categories.add(categories_list)
         elif isinstance(categories_list, list):
             all_categories.update(categories_list)
@@ -109,14 +111,13 @@ def aggregate_news_features(news_df):
     Агрегирует признаки новостей по дате и тикеру
     """
     
-    # Получаем все уникальные категории
     all_categories = get_all_categories(news_df)
     
     # Группируем по дате и тикеру
     grouped = news_df.groupby(['publish_date_only', 'ticker']).agg({
-        'sentiment': ['count', 'std'],  # Убираем mean, оставляем count и std
-        'importance': ['max', 'count'],  # Убираем mean, оставляем max и count
-        'category': lambda x: list(x),  # Список всех категорий
+        'sentiment': ['count', 'std'],
+        'importance': ['max', 'count'],
+        'category': lambda x: list(x),
         'original_index': 'count'
     }).reset_index()
     
@@ -142,7 +143,6 @@ def aggregate_news_features(news_df):
             for category in categories_list:
                 if isinstance(category, str):
                     try:
-                        # Парсим строку как список
                         parsed_categories = ast.literal_eval(category)
                         if isinstance(parsed_categories, list):
                             for cat in parsed_categories:
@@ -154,7 +154,6 @@ def aggregate_news_features(news_df):
                             if col_name in grouped.columns:
                                 grouped.at[idx, col_name] = 1
                     except:
-                        # Если не удается распарсить, используем как есть
                         col_name = f'news_category_{category.replace("/", "_").replace(" ", "_")}'
                         if col_name in grouped.columns:
                             grouped.at[idx, col_name] = 1
@@ -164,7 +163,7 @@ def aggregate_news_features(news_df):
                         if col_name in grouped.columns:
                             grouped.at[idx, col_name] = 1
     
-    # Создаем дополнительные бинарные признаки
+    # Создаем дополнительные признаки
     grouped['has_high_importance_news'] = (grouped['news_importance_max'] >= 8).astype(int)
     grouped['has_any_news'] = (grouped['news_count'] > 0).astype(int)
     
@@ -176,11 +175,11 @@ def aggregate_news_features(news_df):
 def merge_candles_with_news(candles_df, news_aggregated_df):
     """
     Объединяет данные свечей с агрегированными новостями
-    Учитывает задержку новостей на 1 день (новости влияют на следующий день)
+    Учитывает задержку новостей на 1 день (новости пишутся через день после изменений)
     """
     
-    # Сдвигаем даты новостей на 1 день вперед (новости влияют на следующий день)
-    news_aggregated_df['date_shifted'] = pd.to_datetime(news_aggregated_df['date']) + timedelta(days=1)
+    # Сдвигаем даты новостей на 1 день назад (новости пишутся через день после изменений)
+    news_aggregated_df['date_shifted'] = pd.to_datetime(news_aggregated_df['date']) - timedelta(days=1)
     news_aggregated_df['date_shifted'] = news_aggregated_df['date_shifted'].dt.date
     
     # Объединяем по сдвинутой дате и тикеру
@@ -226,8 +225,7 @@ def create_combined_dataset():
     
     combined_df = merge_candles_with_news(candles_prepared, news_aggregated)
     
-    output_path = os.path.join(DATA_DIR, "combined_dataset.csv")
-    combined_df.to_csv(output_path, index=False)
+    combined_df.to_csv(COMBINED_DATASET_PATH, index=False)
     
     return combined_df
 

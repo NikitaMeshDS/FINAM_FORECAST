@@ -1,9 +1,15 @@
 import pandas as pd
 import numpy as np
 import os
+import random
 import joblib
 from datetime import timedelta
-from config import TARGET_DAYS, LAGS, WINDOWS, TICKER_COL, SAVE_DIR, DATA_DIR, SUBMISSION_PATH
+from config import TARGET_DAYS, LAGS, WINDOWS, TICKER_COL, SAVE_DIR, DATA_DIR, COMBINED_DATASET_PATH, SUBMISSION_PATH, SEED
+
+# Фиксируем seed для воспроизводимости
+np.random.seed(SEED)
+random.seed(SEED)
+os.environ['PYTHONHASHSEED'] = str(SEED)
 
 def prepare_features_for_future(df, lag_days=LAGS, windows=WINDOWS):
     """Подготавливает признаки для будущих предсказаний"""
@@ -133,9 +139,7 @@ def make_submission(returns_dict, target_days=TARGET_DAYS, output_path=SUBMISSIO
 
 def main():
     """Основная функция для создания submission файла"""
-    combined_data_path = os.path.join(DATA_DIR, "combined_dataset.csv")
-    
-    candles = pd.read_csv(combined_data_path, parse_dates=["begin"])
+    candles = pd.read_csv(COMBINED_DATASET_PATH, parse_dates=["begin"])
     
     # Генерация будущих дат
     future_data = generate_future_dates(candles)

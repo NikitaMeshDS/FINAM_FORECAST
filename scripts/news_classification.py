@@ -11,6 +11,7 @@ import aiohttp
 import pandas as pd
 import requests
 import numpy as np
+import random
 from tqdm.asyncio import tqdm as async_tqdm
 from tqdm import tqdm
 
@@ -23,8 +24,14 @@ from config import (
     RETRY_DELAY,
     TRAIN_CANDLES_PATH,
     TRAIN_NEWS_PATH,
-    OUTPUT_FILE_PATH
+    OUTPUT_FILE_PATH,
+    SEED
 )
+
+# Фиксируем seed для воспроизводимости
+np.random.seed(SEED)
+random.seed(SEED)
+os.environ['PYTHONHASHSEED'] = str(SEED)
 
 def get_company_name(ticker):
     """Получение названия компании по тикеру с MOEX"""
