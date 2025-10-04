@@ -78,17 +78,19 @@ OPENROUTER_API_KEY = "ваш_api_ключ"
 Выполните команды в следующем порядке:
 
 ```bash
+cd scripts
+
 # 1. Извлечение признаков из новостей
-poetry run python scripts/news_classification.py
+poetry run python news_classification.py
 
 # 2. Создание объединенного датасета
-poetry run python scripts/dataset.py
+poetry run python dataset.py
 
 # 3. Обучение моделей
-poetry run python scripts/train_models.py
+poetry run python train_models.py
 
 # 4. Генерация прогнозов
-poetry run python scripts/make_submission.py
+poetry run python make_submission.py
 ```
 
 ## Описание файлов
