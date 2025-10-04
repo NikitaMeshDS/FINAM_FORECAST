@@ -2,6 +2,7 @@ import pandas as pd
 import os
 from lightgbm import LGBMRegressor
 import joblib
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 from config import TARGET_DAYS, LAGS, WINDOWS, TICKER_COL, SAVE_DIR, DATA_DIR
 
 # Подготовка данных с фичами
@@ -32,18 +33,27 @@ def prepare_data(df, lags=LAGS, windows=WINDOWS):
         g["open_close_ratio"] = g["open"] / g["close"]
         g["volume_price_ratio"] = g["volume"] / g["close"]
         
-        # Удаляем строки с NaN (первые строки из-за лагов)
-        g = g.dropna().reset_index(drop=True)
+        # Заполняем NaN пропущенные значения
+        g = g.ffill().bfill()
         all_features.append(g)
     
     return pd.concat(all_features, axis=0).reset_index(drop=True)
 
 # Обучение моделей
 def train_models(train_data, tickers, save_dir=SAVE_DIR):
-    """Обучает модели для каждого тикера"""
+    """Обучает модели для каждого тикера с перебором параметров"""
     models = {}
     
+    param_grid = {
+        'n_estimators': [500, 1000],
+        'learning_rate': [0.05, 0.1],
+        'num_leaves': [31, 63],
+        'max_depth': [6, 8],
+        'min_child_samples': [20, 30]
+    }
+    
     for ticker in tickers:
+        print(f"Обучаем модель для {ticker}...")
         data = train_data[train_data[TICKER_COL] == ticker].copy()
         
         # Определяем признаки (исключаем служебные колонки)
@@ -53,37 +63,45 @@ def train_models(train_data, tickers, save_dir=SAVE_DIR):
         X_train = data[feature_cols]
         y_train = data["close"]
         
-        # Настройки модели LightGBM
-        model = LGBMRegressor(
-            n_estimators=1000,
-            learning_rate=0.05,
-            num_leaves=31,
-            max_depth=6,
-            min_child_samples=20,
-            subsample=0.8,
-            colsample_bytree=0.8,
+        # Базовые настройки модели LightGBM
+        base_model = LGBMRegressor(
             random_state=42,
             verbose=-1
         )
         
-        model.fit(X_train, y_train)
-        models[ticker] = model
+        # Используем TimeSeriesSplit для временных рядов
+        tscv = TimeSeriesSplit(n_splits=3)
+
+        grid_search = GridSearchCV(
+            estimator=base_model,
+            param_grid=param_grid,
+            cv=tscv,
+            scoring='neg_mean_absolute_error',
+            n_jobs=-1,
+            verbose=0
+        )
         
-        # Сохраняем модель
+        grid_search.fit(X_train, y_train)
+        
+        # Получаем лучшую модель
+        best_model = grid_search.best_estimator_
+        models[ticker] = best_model
+        
         model_path = os.path.join(save_dir, f"{ticker}_model.pkl")
-        joblib.dump(model, model_path)
+        joblib.dump(best_model, model_path)
         
         # Сохраняем список признаков для использования в prediction
         feature_info = {
             'feature_cols': feature_cols,
-            'ticker': ticker
+            'ticker': ticker,
+            'best_params': grid_search.best_params_,
+            'best_score': grid_search.best_score_
         }
         joblib.dump(feature_info, os.path.join(save_dir, f"{ticker}_features.pkl"))
     
     return models
 
-if __name__ == "__main__":
-    # Чтение объединенного датасета
+if __name__ == "__main__":а
     combined_data_path = os.path.join(DATA_DIR, "combined_dataset.csv")
     
     combined_data = pd.read_csv(combined_data_path, parse_dates=["begin"])
@@ -94,5 +112,4 @@ if __name__ == "__main__":
     # Получаем список тикеров
     tickers = combined_data[TICKER_COL].unique()
     
-    # Обучаем модели
     models = train_models(train_data, tickers)

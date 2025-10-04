@@ -5,7 +5,6 @@ import joblib
 from datetime import timedelta
 from config import TARGET_DAYS, LAGS, WINDOWS, TICKER_COL, SAVE_DIR, DATA_DIR, SUBMISSION_PATH
 
-# Функция подготовки данных с фичами
 def prepare_features_for_future(df, lag_days=LAGS, windows=WINDOWS):
     """Подготавливает признаки для будущих предсказаний"""
     df = df.sort_values(["ticker", "begin"]).reset_index(drop=True)
@@ -33,11 +32,12 @@ def prepare_features_for_future(df, lag_days=LAGS, windows=WINDOWS):
         g["open_close_ratio"] = g["open"] / g["close"]
         g["volume_price_ratio"] = g["volume"] / g["close"]
         
+        # Заполняем NaN значения
+        g = g.ffill().bfill()
         all_features.append(g)
 
     return pd.concat(all_features, axis=0).reset_index(drop=True)
 
-# Функция генерации будущих дат
 def generate_future_dates(candles, target_days=TARGET_DAYS):
     """Генерирует календарные дни для предсказаний с новостными признаками"""
     future_data_list = []
@@ -49,7 +49,6 @@ def generate_future_dates(candles, target_days=TARGET_DAYS):
         # Генерируем календарные дни (включая выходные)
         dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=target_days*2, freq='D')
         
-        # Создаем базовую структуру с новостными признаками
         df = pd.DataFrame({
             "begin": dates,
             "ticker": ticker,
@@ -60,7 +59,7 @@ def generate_future_dates(candles, target_days=TARGET_DAYS):
             "low": np.nan
         })
         
-        # Добавляем новостные признаки (заполняем нулями для будущих дат)
+        # Добавляем новостные признаки
         news_columns = [col for col in candles.columns if col.startswith('news_') or col.startswith('has_')]
         for col in news_columns:
             df[col] = 0.0
@@ -77,7 +76,6 @@ def make_predictions(future_prepared, candles, save_dir=SAVE_DIR, target_days=TA
 
     for ticker in tickers:
         
-        # Загружаем модель и информацию о признаках
         model_path = os.path.join(save_dir, f"{ticker}_model.pkl")
         features_path = os.path.join(save_dir, f"{ticker}_features.pkl")
         
@@ -92,11 +90,9 @@ def make_predictions(future_prepared, candles, save_dir=SAVE_DIR, target_days=TA
         
         missing_features = [col for col in feature_cols if col not in df_ticker.columns]
         if missing_features:
-            # Заполняем отсутствующие признаки нулями
             for col in missing_features:
                 df_ticker[col] = 0.0
 
-        # Используем только TARGET_DAYS первых дней для предсказаний
         df_ticker = df_ticker.head(target_days)
         
         # Заполняем NaN значения в признаках
@@ -105,21 +101,18 @@ def make_predictions(future_prepared, candles, save_dir=SAVE_DIR, target_days=TA
         y_pred = model.predict(df_ticker[feature_cols])
         df_ticker["pred_close"] = y_pred
 
-        # Доходности от последнего реального дня с учетом выходных
         close_series = df_ticker["pred_close"].values
         dates_series = df_ticker["begin"].values
         
-        # Получаем последнюю реальную цену для данного тикера
+        # Получаем последнюю цену для данного тикера
         last_real_close = candles[candles["ticker"] == ticker]["close"].iloc[-1]
         
-        # Создаем массив доходностей для всех календарных дней
         returns = [np.nan] * target_days
         
         # Заполняем доходности только для будних дней
         for i in range(target_days):
             current_date = dates_series[i]
             weekday = pd.Timestamp(current_date).weekday()
-            # Проверяем, является ли день выходным (суббота=5, воскресенье=6)
             if weekday < 5:
                 returns[i] = close_series[i] / last_real_close - 1
         
@@ -140,7 +133,6 @@ def make_submission(returns_dict, target_days=TARGET_DAYS, output_path=SUBMISSIO
 
 def main():
     """Основная функция для создания submission файла"""
-    # Чтение объединенного датасета
     combined_data_path = os.path.join(DATA_DIR, "combined_dataset.csv")
     
     candles = pd.read_csv(combined_data_path, parse_dates=["begin"])
@@ -148,20 +140,16 @@ def main():
     # Генерация будущих дат
     future_data = generate_future_dates(candles)
     
-    # Объединяем с историей для расчета лагов
     full_data = pd.concat([candles, future_data], axis=0).reset_index(drop=True)
     
     # Подготавливаем признаки
     full_data_prepared = prepare_features_for_future(full_data)
     
-    # Берем только будущие дни после последней даты
     last_date = candles["begin"].max()
     future_prepared = full_data_prepared[full_data_prepared["begin"] > last_date]
     
-    # Делаем предсказания
     returns_dict = make_predictions(future_prepared, candles)
     
-    # Создаем submission файл
     make_submission(returns_dict)
 
 if __name__ == "__main__":
