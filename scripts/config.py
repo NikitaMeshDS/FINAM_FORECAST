@@ -1,9 +1,8 @@
 import os
 
-# Параметры
-TARGET_DAYS = 20
-LAGS = [1, 2, 3, 5, 10]
-WINDOWS = [3, 5, 10]
+TARGET_DAYS = 20 # количество дней вперед, на которое мы прогнозируем
+LAGS = [1, 2, 3, 5, 10] # лаги
+WINDOWS = [3, 5, 10] # скользящие окна
 TICKER_COL = "ticker"
 SAVE_DIR = "./ticker_models"
 
