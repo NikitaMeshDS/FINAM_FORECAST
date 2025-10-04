@@ -26,8 +26,7 @@ from config import (
     RETRY_DELAY,
     TRAIN_CANDLES_PATH,
     TRAIN_NEWS_PATH,
-    OUTPUT_FILE_PATH,
-    TEMP_OUTPUT_FILE_PATH
+    OUTPUT_FILE_PATH
 )
 
 def get_company_name(ticker):
@@ -141,7 +140,7 @@ async def extract_news_features_async(session, title, publication, publish_date,
     
     return None
 
-async def process_news_batch_async(df, tickers, helper, max_news=None, save_interval=500):
+async def process_news_batch_async(df, tickers, helper, max_news=None):
     """
     Асинхронная обработка новостей с параллельными запросами
     
@@ -150,7 +149,6 @@ async def process_news_batch_async(df, tickers, helper, max_news=None, save_inte
     - tickers: список тикеров
     - helper: словарь соответствия тикеров и названий компаний
     - max_news: максимальное количество новостей для обработки (None = все)
-    - save_interval: интервал сохранения промежуточных результатов
     
     Возвращает датафрейм с новыми признаками
     """
@@ -176,17 +174,9 @@ async def process_news_batch_async(df, tickers, helper, max_news=None, save_inte
         for i, coro in enumerate(async_tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="⚡ Обработка")):
             result = await coro
             results.append(result)
-            
-            # Сохраняем промежуточные результаты
-            if (i + 1) % save_interval == 0:
-                temp_df = pd.DataFrame(results)
-                temp_df.to_csv(TEMP_OUTPUT_FILE_PATH, index=False)
     
     # Создаем датафрейм с результатами
     features_df = pd.DataFrame(results)
-    
-    # Финальное сохранение
-    features_df.to_csv(TEMP_OUTPUT_FILE_PATH, index=False)
     
     return features_df
 
@@ -218,8 +208,7 @@ async def main():
         train_news, 
         tickers,
         helper,
-        max_news=None,
-        save_interval=500
+        max_news=None
     )
     
     # Сохраняем финальные результаты
