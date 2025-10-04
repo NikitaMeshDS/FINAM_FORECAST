@@ -16,24 +16,19 @@ import numpy as np
 from tqdm.asyncio import tqdm as async_tqdm
 from tqdm import tqdm
 
-
-# Настройка для OpenRouter
-OPENROUTER_API_KEY = "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"
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-
-# Модель для обработки
-MODEL = "openai/gpt-4o-mini"  # Оптимальный баланс скорости и точности
-
-# Настройки параллелизма
-CONCURRENT_REQUESTS = 100  # Количество параллельных запросов
-MAX_RETRIES = 2
-RETRY_DELAY = 1
-
-# Пути к файлам
-TRAIN_CANDLES_PATH = "../data/candles.csv"
-TRAIN_NEWS_PATH = "../data/news.csv"
-OUTPUT_FILE_PATH = "../data/train_news_features.csv"
-TEMP_OUTPUT_FILE_PATH = "temp_news_features.csv"
+# Импортируем настройки из config.py
+from config import (
+    OPENROUTER_API_KEY,
+    OPENROUTER_URL,
+    MODEL,
+    CONCURRENT_REQUESTS,
+    MAX_RETRIES,
+    RETRY_DELAY,
+    TRAIN_CANDLES_PATH,
+    TRAIN_NEWS_PATH,
+    OUTPUT_FILE_PATH,
+    TEMP_OUTPUT_FILE_PATH
+)
 
 def get_company_name(ticker):
     """Получение названия компании по тикеру с MOEX"""
@@ -163,9 +158,6 @@ async def process_news_batch_async(df, tickers, helper, max_news=None, save_inte
     if max_news:
         df = df.head(max_news)
     
-    print(f"\n🚀 Начинаем асинхронную обработку {len(df)} новостей...")
-    print(f"⚡ Параллельных запросов: {CONCURRENT_REQUESTS}")
-    
     # Создаем semaphore для ограничения параллелизма
     semaphore = asyncio.Semaphore(CONCURRENT_REQUESTS)
     
@@ -189,46 +181,37 @@ async def process_news_batch_async(df, tickers, helper, max_news=None, save_inte
             if (i + 1) % save_interval == 0:
                 temp_df = pd.DataFrame(results)
                 temp_df.to_csv(TEMP_OUTPUT_FILE_PATH, index=False)
-                print(f"\n💾 Сохранено {i + 1} результатов")
     
     # Создаем датафрейм с результатами
     features_df = pd.DataFrame(results)
     
     # Финальное сохранение
     features_df.to_csv(TEMP_OUTPUT_FILE_PATH, index=False)
-    print(f"\n✅ Обработка завершена! Всего: {len(features_df)} новостей")
     
     return features_df
 
 def load_data():
     """Загрузка данных"""
+    # Проверяем существование файлов
+    if not os.path.exists(TRAIN_CANDLES_PATH):
+        raise FileNotFoundError(f"Файл не найден: {TRAIN_CANDLES_PATH}")
+    if not os.path.exists(TRAIN_NEWS_PATH):
+        raise FileNotFoundError(f"Файл не найден: {TRAIN_NEWS_PATH}")
+    
     # Загружаем данные
     train_candles = pd.read_csv(TRAIN_CANDLES_PATH)
     tickers = train_candles['ticker'].unique().tolist()
-    print(f"Тикеры: {tickers}")
     
     helper = {ticker: get_company_name(ticker) for ticker in tickers}
-    print(f"Справочник компаний: {helper}")
     
     train_news = pd.read_csv(TRAIN_NEWS_PATH)
-    print(f"Загружено новостей: {len(train_news)}")
     
     return train_candles, train_news, tickers, helper
 
 async def main():
     """Основная функция"""
-    print("="*60)
-    print(f"🤖 Модель: {MODEL}")
-    print(f"💰 Стоимость: ~$4-5")
-    print(f"⚡ Примерное время: ~20-40 минут (с асинхронным батчингом!)")
-    print(f"🔄 Параллельных запросов: {CONCURRENT_REQUESTS}")
-    print(f"📅 Дата добавляется автоматически при обработке каждой новости!")
-    print("="*60)
-    
     # Загружаем данные
     train_candles, train_news, tickers, helper = load_data()
-    
-    print(f"\n✅ ОБРАБОТКА: Обрабатываем все {len(train_news)} новостей")
     
     # Запускаем асинхронную обработку
     news_features = await process_news_batch_async(
