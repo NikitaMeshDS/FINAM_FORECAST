@@ -1,3 +1,5 @@
+import os
+
 # Параметры
 TARGET_DAYS = 20
 LAGS = [1, 2, 3, 5, 10]
@@ -7,14 +9,11 @@ SAVE_DIR = "./ticker_models"
 DATA_PATH = "../data/candles.csv"
 SUBMISSION_PATH = "../data/submission.csv"
 
-import os
-
 # OpenRouter API настройки
 OPENROUTER_API_KEY = "token"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL = "openai/gpt-4o-mini"  # Оптимальный баланс скорости и точности
 
-# Настройки параллелизма
 CONCURRENT_REQUESTS = 100  # Количество параллельных запросов
 MAX_RETRIES = 2
 RETRY_DELAY = 1
