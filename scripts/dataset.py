@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Создание объединенного датасета из свечей и новостей
 Объединяет данные по дате и тикеру для обучения моделей прогнозирования
@@ -62,7 +60,7 @@ def prepare_news_data(news_df):
                     'category': row['category'],
                     'original_index': row['original_index']
                 })
-        else:  # Если тикеров нет, создаем запись с пустым тикером
+        else:
             expanded_news.append({
                 'publish_date': row['publish_date'],
                 'publish_date_only': row['publish_date_only'],
@@ -81,8 +79,6 @@ def prepare_candles_data(candles_df):
     """
     Подготавливает данные свечей для объединения
     """
-    
-    # Конвертируем дату в datetime
     candles_df['begin'] = pd.to_datetime(candles_df['begin'])
     candles_df['begin_date_only'] = candles_df['begin'].dt.date
     
@@ -220,26 +216,20 @@ def create_combined_dataset():
     Создает объединенный датасет из свечей и новостей
     """
     
-    # Загружаем данные
     candles_df = pd.read_csv(TRAIN_CANDLES_PATH)
     news_df = pd.read_csv(OUTPUT_FILE_PATH)
     
-    # Подготавливаем данные
     candles_prepared = prepare_candles_data(candles_df)
     news_prepared = prepare_news_data(news_df)
     
-    # Агрегируем новости
     news_aggregated = aggregate_news_features(news_prepared)
     
-    # Объединяем данные
     combined_df = merge_candles_with_news(candles_prepared, news_aggregated)
     
-    # Сохраняем результат
     output_path = os.path.join(DATA_DIR, "combined_dataset.csv")
     combined_df.to_csv(output_path, index=False)
     
     return combined_df
 
 if __name__ == "__main__":
-    # Создаем объединенный датасет
     combined_dataset = create_combined_dataset()

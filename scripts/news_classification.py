@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Асинхронная обработка новостей с извлечением признаков через OpenRouter API
 Автоматическое добавление даты при обработке каждой новости
@@ -16,7 +14,6 @@ import numpy as np
 from tqdm.asyncio import tqdm as async_tqdm
 from tqdm import tqdm
 
-# Импортируем настройки из config.py
 from config import (
     OPENROUTER_API_KEY,
     OPENROUTER_URL,
@@ -128,14 +125,13 @@ async def extract_news_features_async(session, title, publication, publish_date,
                 if attempt < MAX_RETRIES - 1:
                     await asyncio.sleep(RETRY_DELAY * (attempt + 1))
                 else:
-                    # Возвращаем дефолтные значения при неудаче
                     return {
                         "sentiment": 0.0,
                         "importance": 5,
                         "category": "прочее",
                         "affected_tickers": [],
                         "original_index": idx,
-                        "publish_date": publish_date  # Добавляем дату в дефолтные значения
+                        "publish_date": publish_date
                     }
     
     return None
@@ -169,13 +165,11 @@ async def process_news_batch_async(df, tickers, helper, max_news=None):
             task = extract_news_features_async(session, title, publication, publish_date, semaphore, idx, tickers, helper)
             tasks.append(task)
         
-        # Выполняем все задачи параллельно с прогресс-баром
         results = []
         for i, coro in enumerate(async_tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="⚡ Обработка")):
             result = await coro
             results.append(result)
     
-    # Создаем датафрейм с результатами
     features_df = pd.DataFrame(results)
     
     return features_df
@@ -194,7 +188,6 @@ def load_data():
 
 async def main():
     """Основная функция"""
-    # Загружаем данные
     train_candles, train_news, tickers, helper = load_data()
     
     # Запускаем асинхронную обработку
@@ -205,12 +198,10 @@ async def main():
         max_news=None
     )
     
-    # Сохраняем финальные результаты
     news_features.to_csv(OUTPUT_FILE_PATH, index=False)
     
     return news_features
 
 if __name__ == "__main__":
-    # Запуск основной функции
     news_features = asyncio.run(main())
 
