@@ -2,25 +2,9 @@ import pandas as pd
 import os
 from lightgbm import LGBMRegressor
 import joblib
+from config import TARGET_DAYS, LAGS, WINDOWS, TICKER_COL, SAVE_DIR
 
-# --------------------------
-# Параметры
-# --------------------------
-LAGS = [1, 2, 3, 5, 10]
-WINDOWS = [3, 5, 10]
-TICKER_COL = "ticker"
-SAVE_DIR = "./ticker_models"
-os.makedirs(SAVE_DIR, exist_ok=True)
-
-# --------------------------
-# Чтение данных
-# --------------------------
-#отредачить
-candles = pd.read_csv("/Users/nikitamesh/FINAM_FORECAST/data/candles.csv", parse_dates=["begin"])
-
-# --------------------------
 # Подготовка данных с фичами
-# --------------------------
 def prepare_data(df, lags=LAGS, windows=WINDOWS):
     df = df.sort_values([TICKER_COL, "begin"]).reset_index(drop=True)
     all_features = []
@@ -41,12 +25,7 @@ def prepare_data(df, lags=LAGS, windows=WINDOWS):
         all_features.append(g)
     return pd.concat(all_features, axis=0).reset_index(drop=True)
 
-train_data = prepare_data(candles)
-tickers = candles[TICKER_COL].unique()
-
-# --------------------------
 # Обучение моделей
-# --------------------------
 def train_models(train_data, tickers, save_dir=SAVE_DIR):
     models = {}
     for ticker in tickers:
@@ -67,5 +46,10 @@ def train_models(train_data, tickers, save_dir=SAVE_DIR):
         joblib.dump(model, os.path.join(save_dir, f"{ticker}_model.pkl"))
     return models
 
-models = train_models(train_data, tickers)
-print("Обучение завершено. Модели сохранены.")
+if __name__ == "__main__":
+    # Чтение данных
+    candles = pd.read_csv("/Users/nikitamesh/FINAM_FORECAST/data/candles.csv", parse_dates=["begin"])
+    train_data = prepare_data(candles)
+    tickers = candles[TICKER_COL].unique()
+    models = train_models(train_data, tickers)
+    print("Обучение завершено. Модели сохранены.")
