@@ -182,13 +182,7 @@ async def process_news_batch_async(df, tickers, helper, max_news=None):
 
 def load_data():
     """Загрузка данных"""
-    # Проверяем существование файлов
-    if not os.path.exists(TRAIN_CANDLES_PATH):
-        raise FileNotFoundError(f"Файл не найден: {TRAIN_CANDLES_PATH}")
-    if not os.path.exists(TRAIN_NEWS_PATH):
-        raise FileNotFoundError(f"Файл не найден: {TRAIN_NEWS_PATH}")
     
-    # Загружаем данные
     train_candles = pd.read_csv(TRAIN_CANDLES_PATH)
     tickers = train_candles['ticker'].unique().tolist()
     
