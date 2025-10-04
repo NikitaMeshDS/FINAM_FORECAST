@@ -36,7 +36,6 @@ def prepare_news_data(news_df):
     """
     Подготавливает данные новостей для объединения
     """
-    print("Подготовка данных новостей...")
     
     # Конвертируем дату публикации в datetime
     news_df['publish_date'] = pd.to_datetime(news_df['publish_date'])
@@ -75,7 +74,6 @@ def prepare_news_data(news_df):
             })
     
     expanded_news_df = pd.DataFrame(expanded_news)
-    print(f"Создано {len(expanded_news_df)} записей новостей (развернуто по тикерам)")
     
     return expanded_news_df
 
@@ -83,13 +81,10 @@ def prepare_candles_data(candles_df):
     """
     Подготавливает данные свечей для объединения
     """
-    print("Подготовка данных свечей...")
     
     # Конвертируем дату в datetime
     candles_df['begin'] = pd.to_datetime(candles_df['begin'])
     candles_df['begin_date_only'] = candles_df['begin'].dt.date
-    
-    print(f"Загружено {len(candles_df)} записей свечей")
     
     return candles_df
 
@@ -117,11 +112,9 @@ def aggregate_news_features(news_df):
     """
     Агрегирует признаки новостей по дате и тикеру
     """
-    print("Агрегация признаков новостей...")
     
     # Получаем все уникальные категории
     all_categories = get_all_categories(news_df)
-    print(f"Найдено {len(all_categories)} уникальных категорий: {all_categories}")
     
     # Группируем по дате и тикеру
     grouped = news_df.groupby(['publish_date_only', 'ticker']).agg({
@@ -182,9 +175,6 @@ def aggregate_news_features(news_df):
     # Удаляем исходную колонку с категориями
     grouped = grouped.drop('news_categories', axis=1)
     
-    print(f"Создано {len(grouped)} агрегированных записей новостей")
-    print(f"Добавлено {len(all_categories)} one-hot признаков для категорий")
-    
     return grouped
 
 def merge_candles_with_news(candles_df, news_aggregated_df):
@@ -192,7 +182,6 @@ def merge_candles_with_news(candles_df, news_aggregated_df):
     Объединяет данные свечей с агрегированными новостями
     Учитывает задержку новостей на 1 день (новости влияют на следующий день)
     """
-    print("Объединение данных свечей и новостей с учетом задержки...")
     
     # Сдвигаем даты новостей на 1 день вперед (новости влияют на следующий день)
     news_aggregated_df['date_shifted'] = pd.to_datetime(news_aggregated_df['date']) + timedelta(days=1)
@@ -224,30 +213,16 @@ def merge_candles_with_news(candles_df, news_aggregated_df):
         elif col in ['has_high_importance_news', 'has_any_news']:
             merged_df[col] = merged_df[col].fillna(0)
     
-    print(f"Создан объединенный датасет с {len(merged_df)} записями")
-    print(f"Учтена задержка новостей: новости влияют на следующий торговый день")
-    
     return merged_df
 
 def create_combined_dataset():
     """
     Создает объединенный датасет из свечей и новостей
     """
-    print("=== Создание объединенного датасета ===")
-    
-    # Проверяем существование файлов
-    if not os.path.exists(TRAIN_CANDLES_PATH):
-        raise FileNotFoundError(f"Файл не найден: {TRAIN_CANDLES_PATH}")
-    if not os.path.exists(OUTPUT_FILE_PATH):
-        raise FileNotFoundError(f"Файл не найден: {OUTPUT_FILE_PATH}")
     
     # Загружаем данные
-    print("Загрузка данных...")
     candles_df = pd.read_csv(TRAIN_CANDLES_PATH)
     news_df = pd.read_csv(OUTPUT_FILE_PATH)
-    
-    print(f"Загружено {len(candles_df)} записей свечей")
-    print(f"Загружено {len(news_df)} записей новостей")
     
     # Подготавливаем данные
     candles_prepared = prepare_candles_data(candles_df)
@@ -263,33 +238,8 @@ def create_combined_dataset():
     output_path = os.path.join(DATA_DIR, "combined_dataset.csv")
     combined_df.to_csv(output_path, index=False)
     
-    print(f"Объединенный датасет сохранен в: {output_path}")
-    print(f"Размер финального датасета: {combined_df.shape}")
-    
-    # Выводим статистику
-    print("\n=== Статистика объединенного датасета ===")
-    print(f"Общее количество записей: {len(combined_df)}")
-    print(f"Количество уникальных тикеров: {combined_df['ticker'].nunique()}")
-    print(f"Диапазон дат: {combined_df['begin'].min()} - {combined_df['begin'].max()}")
-    
-    # Статистика по новостям
-    news_stats = combined_df[combined_df['news_count'] > 0]
-    print(f"Записей с новостями: {len(news_stats)} ({len(news_stats)/len(combined_df)*100:.1f}%)")
-    
-    if len(news_stats) > 0:
-        print(f"Среднее количество новостей на день: {news_stats['news_count'].mean():.2f}")
-        print(f"Максимальное количество новостей на день: {news_stats['news_count'].max()}")
-    
     return combined_df
 
 if __name__ == "__main__":
     # Создаем объединенный датасет
     combined_dataset = create_combined_dataset()
-    
-    # Показываем первые несколько строк
-    print("\n=== Первые 5 строк объединенного датасета ===")
-    print(combined_dataset.head())
-    
-    # Показываем информацию о колонках
-    print("\n=== Информация о колонках ===")
-    print(combined_dataset.info())

@@ -44,7 +44,6 @@ def train_models(train_data, tickers, save_dir=SAVE_DIR):
     models = {}
     
     for ticker in tickers:
-        print(f"Обучаем модель для {ticker}...")
         data = train_data[train_data[TICKER_COL] == ticker].copy()
         
         # Определяем признаки (исключаем служебные колонки)
@@ -53,9 +52,6 @@ def train_models(train_data, tickers, save_dir=SAVE_DIR):
         
         X_train = data[feature_cols]
         y_train = data["close"]
-        
-        print(f"  Количество признаков: {len(feature_cols)}")
-        print(f"  Размер обучающей выборки: {len(X_train)}")
         
         # Настройки модели LightGBM
         model = LGBMRegressor(
@@ -83,28 +79,20 @@ def train_models(train_data, tickers, save_dir=SAVE_DIR):
             'ticker': ticker
         }
         joblib.dump(feature_info, os.path.join(save_dir, f"{ticker}_features.pkl"))
-        
-        print(f"  Модель сохранена: {model_path}")
     
     return models
 
 if __name__ == "__main__":
     # Чтение объединенного датасета
     combined_data_path = os.path.join(DATA_DIR, "combined_dataset.csv")
-    print(f"Загружаем данные из: {combined_data_path}")
     
     combined_data = pd.read_csv(combined_data_path, parse_dates=["begin"])
-    print(f"Загружено {len(combined_data)} записей")
-    print(f"Количество тикеров: {combined_data['ticker'].nunique()}")
     
     # Подготавливаем данные с признаками
     train_data = prepare_data(combined_data)
-    print(f"После подготовки признаков: {len(train_data)} записей")
     
     # Получаем список тикеров
     tickers = combined_data[TICKER_COL].unique()
-    print(f"Тикеры для обучения: {tickers}")
     
     # Обучаем модели
     models = train_models(train_data, tickers)
-    print("Обучение завершено. Модели сохранены.")
