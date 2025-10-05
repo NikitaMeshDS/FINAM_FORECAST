@@ -77,7 +77,7 @@ def train_models(train_data, tickers, save_dir=SAVE_DIR):
     
     # Параметры для случайного поиска
     param_distributions = {
-        'n_estimators': randint(400, 100),
+        'n_estimators': randint(400, 1000),
         'learning_rate': uniform(0.01, 0.2),
         'num_leaves': randint(20, 100),
         'max_depth': randint(4, 12),
