@@ -156,7 +156,7 @@ poetry run python make_submission.py
 
 ## Требования
 
-- Python 3.8+
+- Python 3.12
 - Poetry для управления зависимостями
 - API ключ OpenRouter для анализа новостей
 - GPU (опционально) для ускорения обучения моделей
