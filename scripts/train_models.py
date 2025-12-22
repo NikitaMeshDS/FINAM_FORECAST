@@ -92,7 +92,8 @@ def train_models(train_data, tickers, save_dir=SAVE_DIR):
         print(f"Обучаем модель для {ticker}...")
         data = train_data[train_data[TICKER_COL] == ticker].copy()
         
-        exclude_cols = ["begin", "ticker", "close", "begin_date_only", "open", "high", "low", "volume"]
+        exclude_cols = ["begin", "ticker", "close", "begin_date_only", "open", "high", "low", "volume",
+                        "open_close_ratio", "volume_price_ratio"]  # Исключаем признаки с утечкой данных
         feature_cols = [c for c in data.columns if c not in exclude_cols]
         
         X_train = data[feature_cols]
@@ -120,7 +121,7 @@ def train_models(train_data, tickers, save_dir=SAVE_DIR):
         random_search = RandomizedSearchCV(
             estimator=base_model,
             param_distributions=param_distributions,
-            n_iter=5,  # Количество случайных комбинаций
+            n_iter=2,  # Количество случайных комбинаций
             cv=tscv,
             scoring='neg_mean_absolute_error',
             n_jobs=-1,
