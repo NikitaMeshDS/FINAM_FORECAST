@@ -1,6 +1,5 @@
 import os
 import json
-import time
 import asyncio
 import aiohttp
 import pandas as pd
@@ -8,7 +7,6 @@ import requests
 import numpy as np
 import random
 from tqdm.asyncio import tqdm as async_tqdm
-from tqdm import tqdm
 
 from config import (
     OPENROUTER_API_KEY,
@@ -168,7 +166,7 @@ async def process_news_batch_async(df, tickers, helper, max_news=None):
             tasks.append(task)
         
         results = []
-        for i, coro in enumerate(async_tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="⚡ Обработка")):
+        for coro in async_tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="⚡ Обработка"):
             result = await coro
             results.append(result)
     
@@ -179,18 +177,17 @@ async def process_news_batch_async(df, tickers, helper, max_news=None):
 def load_data():
     """Загрузка данных"""
     
-    train_candles = pd.read_csv(TRAIN_CANDLES_PATH)
-    tickers = train_candles['ticker'].unique().tolist()
+    tickers = pd.read_csv(TRAIN_CANDLES_PATH)['ticker'].unique().tolist()
     
     helper = {ticker: get_company_name(ticker) for ticker in tickers}
     
     train_news = pd.read_csv(TRAIN_NEWS_PATH)
     
-    return train_candles, train_news, tickers, helper
+    return train_news, tickers, helper
 
 async def main():
     """Основная функция"""
-    train_candles, train_news, tickers, helper = load_data()
+    train_news, tickers, helper = load_data()
     
     # Запускаем асинхронную обработку
     news_features = await process_news_batch_async(

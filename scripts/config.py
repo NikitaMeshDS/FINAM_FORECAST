@@ -14,10 +14,6 @@ TRAIN_CANDLES_PATH = os.path.join(DATA_DIR, "candles.csv")
 TRAIN_NEWS_PATH = os.path.join(DATA_DIR, "news.csv")
 OUTPUT_FILE_PATH = os.path.join(DATA_DIR, "train_news_features.csv")
 COMBINED_DATASET_PATH = os.path.join(DATA_DIR, "combined_dataset.csv")
-
-DATA_PATH = "../data/candles.csv"
-NEWS_PATH = "../data/news.csv"
-NEWS_FEATURES_PATH = "../data/news_features.csv"
 SUBMISSION_PATH = "../data/submission.csv"
 
 # OpenRouter API настройки

@@ -3,8 +3,7 @@ import numpy as np
 import os
 import random
 import joblib
-from datetime import timedelta
-from config import TARGET_DAYS, LAGS, WINDOWS, TICKER_COL, SAVE_DIR, DATA_DIR, COMBINED_DATASET_PATH, SUBMISSION_PATH, SEED
+from config import TARGET_DAYS, LAGS, WINDOWS, TICKER_COL, SAVE_DIR, COMBINED_DATASET_PATH, SUBMISSION_PATH, SEED
 
 # Фиксируем seed для воспроизводимости
 np.random.seed(SEED)

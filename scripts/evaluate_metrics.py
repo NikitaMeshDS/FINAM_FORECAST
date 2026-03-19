@@ -4,7 +4,7 @@ import os
 import joblib
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import TimeSeriesSplit
-from config import LAGS, WINDOWS, TICKER_COL, SAVE_DIR, DATA_DIR, COMBINED_DATASET_PATH, SEED
+from config import LAGS, WINDOWS, TICKER_COL, SAVE_DIR, COMBINED_DATASET_PATH
 
 def prepare_data(df, lags=LAGS, windows=WINDOWS):
     """Подготавливает данные с техническими индикаторами и новостными признаками"""
@@ -55,7 +55,7 @@ def calculate_metrics(y_true, y_pred):
     }
     return metrics
 
-def evaluate_model_on_data(model, X, y, feature_cols):
+def evaluate_model_on_data(model, X, feature_cols):
     """Оценивает модель на данных"""
     # Проверяем наличие всех признаков
     missing_features = [col for col in feature_cols if col not in X.columns]
@@ -183,7 +183,7 @@ def evaluate_models_simple(train_data, tickers, save_dir=SAVE_DIR, test_size=0.2
         y_test = y.iloc[split_idx:]
         
         # Предсказания на тестовой выборке
-        y_pred = evaluate_model_on_data(model, X_test, y_test, feature_cols)
+        y_pred = evaluate_model_on_data(model, X_test, feature_cols)
         
         # Метрики
         metrics = calculate_metrics(y_test, y_pred)
